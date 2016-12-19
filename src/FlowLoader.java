@@ -13,15 +13,15 @@ import java.util.Locale;
 public class FlowLoader {
     final static String CHARSET = "UTF8";
     final static String SPLITER = " ";
-    final static String FOLDER = "d:/stat";
     final static String DRIVER = "oracle.jdbc.OracleDriver";
+    static String FOLDER;
     static Connection connection = null;
     static PreparedStatement ps = null;
 
     public static void main(String[] args) {
         long time = System.currentTimeMillis();
         final String CON_STRING = args[0];
-
+        FOLDER = args[1];
         try {
             Class.forName(DRIVER);
         } catch (ClassNotFoundException e) {
@@ -50,20 +50,24 @@ public class FlowLoader {
 
     private static void import_data() throws SQLException {
         File fileDir = new File(FOLDER);
+        File doneDir = new File(FOLDER + "/loaded");
+        if (!doneDir.exists()) doneDir.mkdir();
         List<File> files = Arrays.asList(fileDir.listFiles());
         connection.setAutoCommit(false);
         ps = connection.prepareStatement("insert into FLOWSTAT(FLOWTYPE,FLOWDATE,IPADDR,FLOWS,OCTETS,PACKETS) " +
                 "values(?,?,?,?,?,?)");
         files.forEach(file -> {
-                    FlowReader flowReader = new FlowReader(file.getPath(), CHARSET);
-                    try {
-                        process_file(flowReader);
-                        System.out.println(file.getPath());
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
+            if (!file.isDirectory()) {
+                FlowReader flowReader = new FlowReader(file.getPath(), CHARSET);
+                try {
+                    process_file(flowReader);
+                    System.out.println(doneDir.getPath() + File.separator + file.getName());
+                    file.renameTo(new File(doneDir.getPath() + File.separator + file.getName()));
+                } catch (SQLException e) {
+                    e.printStackTrace();
                 }
-        );
+            }
+        });
 
     }
 
