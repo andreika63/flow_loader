@@ -16,7 +16,8 @@ public class FlowLoader {
     final static String DRIVER = "oracle.jdbc.OracleDriver";
     static String FOLDER;
     static Connection connection = null;
-    static PreparedStatement ps = null;
+    static PreparedStatement psIns = null;
+    static PreparedStatement psDel = null;
 
     public static void main(String[] args) {
         long time = System.currentTimeMillis();
@@ -31,7 +32,7 @@ public class FlowLoader {
         try {
             Locale.setDefault(Locale.US);
             connection = DriverManager.getConnection(CON_STRING);
-            if (connection != null) System.out.println("Connected");
+            if (connection != null) System.out.println("Connected to database");
             //database is ready, so we can process import data
             import_data();
         } catch (SQLException e) {
@@ -40,7 +41,7 @@ public class FlowLoader {
         } finally {
             try {
                 if (connection != null) connection.close();
-                if (ps != null) ps.close();
+                if (psIns != null) psIns.close();
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -54,7 +55,8 @@ public class FlowLoader {
         if (!doneDir.exists()) doneDir.mkdir();
         List<File> files = Arrays.asList(fileDir.listFiles());
         connection.setAutoCommit(false);
-        ps = connection.prepareStatement("insert into FLOWSTAT(FLOWTYPE,FLOWDATE,IPADDR,FLOWS,OCTETS,PACKETS) " +
+        psDel = connection.prepareStatement("delete from FLOWSTAT where FLOWTYPE = ? and FLOWDATE = ?");
+        psIns = connection.prepareStatement("insert into FLOWSTAT(FLOWTYPE,FLOWDATE,IPADDR,FLOWS,OCTETS,PACKETS) " +
                 "values(?,?,?,?,?,?)");
         files.forEach(file -> {
             if (!file.isDirectory()) {
@@ -72,22 +74,25 @@ public class FlowLoader {
     }
 
     private static void process_file(FlowReader flowReader) throws SQLException {
-        ps.clearBatch();
+        psIns.clearBatch();
         flowReader.findAll(SPLITER).forEach(s -> {
             for (int i = 0; i < s.length; i++) {
                 try {
-                    ps.setString(i + 1, s[i]);
+                    psIns.setString(i + 1, s[i]);
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
             }
             try {
-                ps.addBatch();
+                psIns.addBatch();
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         });
-        ps.executeBatch();
+        psDel.setString(1,flowReader.getFlowType());
+        psDel.setString(2,flowReader.getFlowDate());
+        psDel.execute();
+        psIns.executeBatch();
         connection.commit();
     }
 }

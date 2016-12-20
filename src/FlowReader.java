@@ -11,6 +11,15 @@ public class FlowReader {
     private String fileName;
     private String charSet;
     private final Pattern PATTERN = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})(\\w+)(\\.txt)");
+
+    public String getFlowDate() {
+        return flowDate;
+    }
+
+    public String getFlowType() {
+        return flowType;
+    }
+
     private String flowDate;
     private String flowType;
 
